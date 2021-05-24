@@ -28,6 +28,13 @@ recherche_cat.head()
 
 catalogue.groupby('TYPE').sum()
 
+# uniformisation des valeurs de la colonne "Code" pour  tout mettre en lettres capitales ==> Faciliter le future merge avec les lignes de commandes
+catalogue['Code'] = catalogue['Code'].str.upper()
+
+# Suppression des espaces avant et après les valeurs, pour supprimer les doublons sur cette colonne (ex CH001)
+catalogue['Code'] = catalogue['Code'].str.strip()
+catalogue = catalogue.drop_duplicates(subset=['Code'])
+
 file_name = '/content/drive/MyDrive/defrise/Lignes de bon 2004.xls' 
 commande_2004 = pd.read_excel(file_name, index_col=0)
 file_name = '/content/drive/MyDrive/defrise/Lignes de bon 2005.xls' 
@@ -60,10 +67,23 @@ commande.head()
 #suppression colonne LD_CLE, LD_REMISE,LD_LIGNE
 commande=commande.drop(['LD_CLE', 'LD_REMISE','LD_LIGNE'], axis=1)
 
-#suppression AR_CODE = *
+# suppression des espaces avant et après les valeurs, dans les colonnes 'AR_CODE' et 'LD_BREAK'
+commande['AR_CODE']=commande['AR_CODE'].str.strip()
+commande['LD_BREAK']=commande['LD_BREAK'].str.strip()
+
+#suppression AR_CODE = * ==> Correspond à des lignes de montant 0
 commande_new=commande.loc[commande['AR_CODE'] != '*']
 
+#suppression des lignes où on a AR_CODE = 1 ==> Correspond à des lignes de montant 0
+commande_LigneArticle=commande_LigneArticle.loc[commande_LigneArticle['AR_CODE'] != '1']
+
 commande_new2=commande_new.loc[(commande_new['LD_PU'] != 0) & (commande_new['LD_VALEUR'] != 0)]
+
+#suppression des lignes où on a LD_BREAK = D, T, LR ou LS
+commande_new2=commande_new2.loc[commande_new2['LD_BREAK'] != 'D'] # les lignes des dates de location
+commande_new2=commande_new2.loc[commande_new2['LD_BREAK'] != 'T'] # pour chaque commande, la ligne de total de la commande
+commande_new2=commande_new2.loc[commande_new2['LD_BREAK'] != 'LS'] # le montant de la location standard, calculé sur 10% de la valeur des articles
+commande_new2=commande_new2.loc[commande_new2['LD_BREAK'] != 'LR'] # le montant LS avec une remise de 30%
 
 commande_new2['ANNEE'] = commande_new2['ED_NUM_BON'].astype(str).str[:4]
 
@@ -71,22 +91,10 @@ commande_new2.describe()
 
 commande_new2.head(10)
 
-#df=pd.merge(commande_new2, catalogue, left_on='AR_CODE', right_on='Code', how='left')
-#nope
-
-#commande_news2=commande_new2['AR_CODE'].str.strip() ne fonctionne pas
-
-new = pd.Series([])
-new = commande_new2['AR_CODE'].str.strip()
-commande_new2['AR_CODE'] = new
-#on transforme en series pour faire le strip
-
-commande_new2['AR_CODE'].str.len()
-#enlever les vides avant et apres
-
-commande_new2.head()
-
 commande_new2.loc[commande_new2['AR_CODE']=='APCOF']
+
+# uniformisation des valeurs de la colonne "AR_CODE" pour tout mettre en lettres capitales ==> Faciliter le future merge avec les lignes de catalogue
+commande_new2['AR_CODE'] = commande_new2['AR_CODE'].str.upper()
 
 df=commande_new2.merge(catalogue,left_on='AR_CODE', right_on='Code', how='left')
 
